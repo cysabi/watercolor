@@ -118,13 +118,11 @@ export class Sketch {
   );
 
   constructor() {
-    // this.renderer.clear();
     this.renderer.setClearColor(this.bgColor, 1);
     this.renderer.setPixelRatio(Math.max(window.devicePixelRatio, 1));
 
     this.camera.position.set(0, 0, 1);
     this.fboCamera.position.set(0, 0, 1);
-    this.anotherCamera.position.set(0, 0, 1);
 
     // Creats and render background
     // TODO: possibly remove and use existing scenes and render targets
@@ -147,7 +145,7 @@ export class Sketch {
       },
       vertexShader: vertex,
       fragmentShader: FBOfragment,
-      transparent: true,
+      // transparent: true,
     });
 
     this.fboQuad = new THREE.Mesh(
@@ -210,9 +208,11 @@ export class Sketch {
     this.fboMaterial.uniforms.tPrev.value = this.targetA.texture; // get the previous texture
 
     // remove white / transform to alpha
-    this.another.uniforms.tSource.value = this.targetA.texture;
     this.renderer.setRenderTarget(this.targetFinal);
+    this.another.uniforms.tSource.value = this.targetA.texture;
     this.renderer.render(this.anotherScene, this.anotherCamera);
+
+    // this.targetFinal = this.targetA;
 
     // final output
     this.finalQuad.material.map = this.targetFinal.texture;
