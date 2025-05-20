@@ -1,4 +1,4 @@
-#define NUM_OCTAVES 4
+#define NUM_OCTAVES 3
 
 uniform sampler2D tDiffuse;
 uniform sampler2D tPrev;
@@ -91,20 +91,25 @@ vec3 rgb2hsl( in vec3 c ){
 }
 
 
-vec3 bgColor = vec3(1., 1., 1.);
+vec3 bgColor = vec3(1.);
 void main() {
   vec4 color = texture2D(tDiffuse, vUv); // mose movement
   vec4 prev = texture2D(tPrev, vUv); // previous frame
-  vec2 aspect = vec2(1., 1.);
+  vec2 aspect = vec2(1., 1.); // what % of each axis to apply
 
-  vec2 displacement = fbm(vUv * 22.) * aspect * 0.005;
+  // TODO: neat to have variance over time
+  float offset = floor(uTime / 2.0);
+  float radius = 0.005;
+  vec2 displacement = fbm(vUv * 22. + offset) * aspect * radius;
 
+  // sample colors around orthogonally sorta like gaussian blur?
   vec4 texel = texture2D(tPrev, vUv);
   vec4 texel2 = texture2D(tPrev, vec2(vUv.x + displacement.x, vUv.y));
   vec4 texel3 = texture2D(tPrev, vec2(vUv.x - displacement.x, vUv.y));
   vec4 texel4 = texture2D(tPrev, vec2(vUv.x, vUv.y + displacement.y));
   vec4 texel5 = texture2D(tPrev, vec2(vUv.x, vUv.y - displacement.y));
 
+  // blend all the texels together
   vec3 floodcolor = texel.rgb;
   floodcolor = blendDarken(floodcolor, texel2.rgb);
   floodcolor = blendDarken(floodcolor, texel3.rgb);
@@ -113,12 +118,19 @@ void main() {
 
   vec3 watercolor = blendDarken(prev.rgb, floodcolor * 1.01, 0.35);
   vec3 gradient = hsl2rgb(vec3(color.g + (noise(vec2(uTime, 0.0)) * 0.1) - 0.05, 0.5, 0.5));
+  // choose which color based off of passed in `color`
   vec3 lcolor = mix(vec3(1.), gradient, color.r);
-  vec3 finalColor = blendDarken(watercolor, lcolor, 0.5);
+  vec3 finalColor = blendDarken(watercolor, lcolor);
 
+#if 0
   gl_FragColor = color + prev * 0.9;
+#elif 0
   gl_FragColor = vec4(displacement, 0., 1.);
+#elif 0
   gl_FragColor = vec4(watercolor, 1.);
+#elif 0
   gl_FragColor = vec4(gradient, 1.);
+#else
   gl_FragColor = vec4(min(bgColor, finalColor * 1.01), 1.);
+#endif
 }

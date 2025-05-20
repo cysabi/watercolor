@@ -6,7 +6,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls";
 import Stats from "three/examples/jsm/libs/stats.module";
 
 import fragment from "./shaders/fragment.glsl";
-import fragmentFBO from "./shaders/fbo.glsl";
+import FBOfragment from "./shaders/fbo.glsl";
+import NEWfragment from "./shaders/new.glsl";
 import vertex from "./shaders/vertex.glsl";
 
 const width = window.innerWidth;
@@ -34,6 +35,7 @@ export class Sketch {
   sourceTarget = new THREE.WebGLRenderTarget(width, height);
   targetA = new THREE.WebGLRenderTarget(width, height);
   targetB = new THREE.WebGLRenderTarget(width, height);
+  targetFinal = new THREE.WebGLRenderTarget(width, height);
 
   camera = new THREE.PerspectiveCamera(
     /* The first attribute is the field of view.
@@ -85,6 +87,11 @@ export class Sketch {
   fboMaterial: THREE.ShaderMaterial;
   fboQuad: THREE.Mesh;
 
+  anotherScene = new THREE.Scene();
+  anotherCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  another: THREE.ShaderMaterial;
+  anotherQuad: THREE.Mesh;
+
   finalScene = new THREE.Scene();
   finalQuad = new THREE.Mesh(
     new THREE.PlaneGeometry(2, 2),
@@ -111,11 +118,13 @@ export class Sketch {
   );
 
   constructor() {
+    // this.renderer.clear();
     this.renderer.setClearColor(this.bgColor, 1);
     this.renderer.setPixelRatio(Math.max(window.devicePixelRatio, 1));
 
     this.camera.position.set(0, 0, 1);
     this.fboCamera.position.set(0, 0, 1);
+    this.anotherCamera.position.set(0, 0, 1);
 
     // Creats and render background
     // TODO: possibly remove and use existing scenes and render targets
@@ -137,7 +146,8 @@ export class Sketch {
         },
       },
       vertexShader: vertex,
-      fragmentShader: fragmentFBO,
+      fragmentShader: FBOfragment,
+      transparent: true,
     });
 
     this.fboQuad = new THREE.Mesh(
@@ -146,6 +156,26 @@ export class Sketch {
     );
 
     this.fboScene.add(this.fboQuad);
+
+    this.another = new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
+      uniforms: {
+        tSource: { value: this.targetA.texture },
+        uResolution: {
+          value: new THREE.Vector4(this.width, this.height, 1, 1),
+        },
+      },
+      vertexShader: vertex,
+      fragmentShader: NEWfragment,
+      transparent: true,
+    });
+
+    this.anotherQuad = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      this.another
+    );
+
+    this.anotherScene.add(this.anotherQuad);
 
     // this.plane = new THREE.Mesh(this.geometry, this.material);
     // this.scene.add(this.plane);
@@ -177,10 +207,15 @@ export class Sketch {
     //   2.1 In next render renderTarget will be this.targetB (after swap)
     //       tDiffues will be texture from source
     //       tPrev will be saved previous texture
-    this.fboMaterial.uniforms.tPrev.value = this.targetA.texture;
+    this.fboMaterial.uniforms.tPrev.value = this.targetA.texture; // get the previous texture
+
+    // remove white / transform to alpha
+    this.another.uniforms.tSource.value = this.targetA.texture;
+    this.renderer.setRenderTarget(this.targetFinal);
+    this.renderer.render(this.anotherScene, this.anotherCamera);
 
     // final output
-    this.finalQuad.material.map = this.targetA.texture;
+    this.finalQuad.material.map = this.targetFinal.texture;
     this.renderer.setRenderTarget(null);
 
     // Plane with shader material which uses previous scene as a texture
