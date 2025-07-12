@@ -139,14 +139,14 @@ class WebglElement extends HTMLElement {
       resize.draw();
       timer.draw(currentTime);
 
-      gl.bindFramebuffer(gl.FRAMEBUFFER, pass.getCurrentFBO());
+      // gl.bindFramebuffer(gl.FRAMEBUFFER, pass.getCurrentFBO());
       gl.bindTexture(gl.TEXTURE_2D, pass.getCurrentTexture()); // ???
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       pass.swap();
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, pass.getCurrentFBO());
-      gl.bindTexture(gl.TEXTURE_2D, pass.getCurrentTexture());
+      // gl.bindTexture(gl.TEXTURE_2D, pass.getCurrentTexture());
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); // add display shader???
