@@ -25,7 +25,8 @@ class WebglElement extends HTMLElement {
             gl_Position = vec4(position, 0.0, 1.0);
             vUV = (position + 1.0) * 0.5;
         }
-      `
+      ` // ??? in vs out
+      // ??? uniform in fragment vs vertex
     );
 
     const fragmentShader = createShader(
@@ -54,7 +55,7 @@ class WebglElement extends HTMLElement {
       textures: [] as WebGLTexture[],
       location: gl.getUniformLocation(program, "u_texture"),
       swap() {
-        gl.uniform1i(pass.location, this.index);
+        gl.uniform1i(pass.location, this.index); // ???
         this.index = this.index ? 0 : 1;
       },
       getCurrentFBO() {
@@ -65,6 +66,7 @@ class WebglElement extends HTMLElement {
       },
       create() {
         var texture = gl.createTexture();
+        // gl.activeTexture(gl.TEXTURE0 + this.index); // ???
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -138,16 +140,16 @@ class WebglElement extends HTMLElement {
       timer.draw(currentTime);
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, pass.getCurrentFBO());
-      gl.bindTexture(gl.FRAMEBUFFER, pass.getCurrentTexture());
+      gl.bindTexture(gl.TEXTURE_2D, pass.getCurrentTexture()); // ???
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
       pass.swap();
 
       gl.bindFramebuffer(gl.FRAMEBUFFER, pass.getCurrentFBO());
-      gl.bindTexture(gl.FRAMEBUFFER, pass.getCurrentTexture());
+      gl.bindTexture(gl.TEXTURE_2D, pass.getCurrentTexture());
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); // add display shader???
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     };
 
