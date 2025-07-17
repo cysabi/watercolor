@@ -17,13 +17,11 @@ class WebglElement extends HTMLElement {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    // shader and program
-    const program = createProgram(
+    // shaders
+    const vs = createShader(
       gl,
-      createShader(
-        gl,
-        gl.VERTEX_SHADER,
-        `#version 300 es
+      gl.VERTEX_SHADER,
+      `#version 300 es
             in vec2 pos;
             out vec2 uv;
             void main() {
@@ -31,11 +29,11 @@ class WebglElement extends HTMLElement {
                 uv = pos * 0.5 + 0.5;
             }
         `
-      )!,
-      createShader(
-        gl,
-        gl.FRAGMENT_SHADER,
-        `#version 300 es
+    );
+    const fs = createShader(
+      gl,
+      gl.FRAGMENT_SHADER,
+      `#version 300 es
             precision mediump float;
             in vec2 uv;
             out vec4 fragColor;
@@ -49,8 +47,12 @@ class WebglElement extends HTMLElement {
               }
             }
         `
-      )!
-    )!;
+    );
+    var program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.useProgram(program);
 
     const pass = {
       current: 0,
@@ -161,27 +163,9 @@ function createShader(gl: WebGL2RenderingContext, type: number, source: any) {
     return shader;
   }
 
-  console.log(gl.getShaderInfoLog(shader));
+  const log = gl.getShaderInfoLog(shader);
   gl.deleteShader(shader);
-}
-
-function createProgram(
-  gl: WebGL2RenderingContext,
-  vertexShader: WebGLShader,
-  fragmentShader: WebGLShader
-) {
-  var program = gl.createProgram();
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  var success = gl.getProgramParameter(program, gl.LINK_STATUS);
-  if (success) {
-    gl.useProgram(program);
-    return program;
-  }
-
-  console.log(gl.getProgramInfoLog(program));
-  gl.deleteProgram(program);
+  throw Error(log!);
 }
 
 window.customElements.define("webgl-element", WebglElement);
