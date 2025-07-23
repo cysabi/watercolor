@@ -34,29 +34,68 @@ class WebglElement extends HTMLElement {
       gl,
       gl.FRAGMENT_SHADER,
       `#version 300 es
-            precision mediump float;
-            in vec2 uv;
-            out vec4 fragColor;
-            uniform sampler2D tex;
-            uniform vec2 u_resolution;
-            uniform vec2 u_mousepos;
-            uniform bool u_mousedown;
+        precision mediump float;
+        in vec2 uv;
+        out vec4 fragColor;
+        uniform sampler2D tex;
+        uniform vec2 u_resolution;
+        uniform vec2 u_mousepos;
+        uniform bool u_mousedown;
+        uniform float u_time;
 
-            void main() {
-              vec2 coords = uv * u_resolution;
-              float d = distance(u_mousepos, coords);
+        float encodeVel(vec2 v) {
+          return floor(v.x * 255.0) + (v.y * 255.0) / 256.0;
+        }
 
-              fragColor = texture(tex, uv) - vec4(0, 0.01, 0, 0);
+        vec2 decodeVel(float v) {
+          return vec2(floor(v / 255.0), fract(v) * (256.0 / 255.0));
+        }
 
-              if (d < 100.0) {
-                if (u_mousedown) {
-                  fragColor = vec4(d/100.0, 0.5, 0.5, 0);
-                } else {
-                  fragColor = vec4(0.5, 0.5, d/100.0, 0);
-                }
-              }
+        vec2 invertVel(vec2 v) {
+          return vec2(v.y, v.x);
+        }
+
+        // need 2 staggered grids, one shifted down and one shifted right. r (official), g (shifted down), b (shifted right), a (1)
+        vec2 velocity(float stag_i, float stag_j) {
+          vec2 ij = uv * u_resolution;
+          ij += vec2(stag_i, stag_j);
+
+          vec4 uv = texture(tex, vec2(floor(ij.x), floor(ij.y)));
+
+          if (stag_i == floor(stag_i)) {
+            return decodeVel(uv.g);
+          }
+          if (stag_j == floor(stag_j)) {
+            return decodeVel(uv.b);
+          }
+          // if (stag_j == floor(stag_j)) {
+          // // TODO i need to have fucking corners bro
+          // return decodeVel(uv.b);
+          // }
+          return decodeVel(uv.r);
+        }
+
+        void main() {
+          vec2 coords = uv * u_resolution;
+          float d = distance(u_mousepos, coords);
+
+          float viscosity = 0.001;
+          float drag = 0.0001;
+
+          vec2 a = pow(velocity(0.0, 0.0), vec2(2.0, 2.0)) - pow(velocity(1.0, 0.0), vec2(2.0, 2.0)) + (velocity(0.5, -0.5) * invertVel(velocity(0.5, -0.5))) - (velocity(0.5, 0.5) * invertVel(velocity(0.5, 0.5)));
+          vec2 b = velocity(1.5, 0.0) + velocity(-0.5, 0.0) + velocity(0.5, 1.0) + velocity(0.5, -1.0) - 4.0 * velocity(0.5, 0.0);
+          vec2 old_uv = vec2(velocity(0.5, 0.0).x, velocity(0.0, 0.5).y);
+          vec2 new_uv = old_uv + u_time * (a - viscosity*b + /* p_i,j p_i+1,j*/ - drag * old_uv);
+          fragColor.g = new_uv.x;
+          fragColor.b = new_uv.y;
+
+          if (d < 100.0) {
+            if (u_mousedown) {
+              fragColor = vec4(1, 1, 1, 0);
             }
-        `
+          }
+        }
+      `
     );
     var program = gl.createProgram();
     gl.attachShader(program, vs);
@@ -117,8 +156,8 @@ class WebglElement extends HTMLElement {
       u_time: 0,
       draw(currentTime: number = 0) {
         const deltaTime = currentTime - this.u_time;
+        gl.uniform1f(timer.location, deltaTime);
         this.u_time = currentTime;
-        gl.uniform1f(timer.location, this.u_time / 1000.0);
         return deltaTime;
       },
     };
@@ -133,7 +172,6 @@ class WebglElement extends HTMLElement {
         gl.uniform1i(mouse.location_down, 0);
       },
       move(event: MouseEvent) {
-        console.log(event.offsetY, event.offsetX);
         gl.uniform2fv(mouse.location_pos, [
           event.offsetX * devicePixelRatio,
           canvas.height - event.offsetY * devicePixelRatio,
@@ -153,7 +191,6 @@ class WebglElement extends HTMLElement {
           canvas.height = canvas.offsetHeight * devicePixelRatio;
           canvas.width = canvas.offsetWidth * devicePixelRatio;
           gl.viewport(0, 0, canvas.width, canvas.height);
-          console.log(canvas.height, canvas.width);
           gl.uniform2fv(resize.location, [canvas.width, canvas.height]);
           pass.init();
           this.yes = false;
