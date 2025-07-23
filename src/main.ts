@@ -43,16 +43,16 @@ class WebglElement extends HTMLElement {
             uniform bool u_mousedown;
 
             void main() {
-              fragColor = texture(tex, uv) - vec4(0, 0.01, 0, 0);
-
               vec2 coords = uv * u_resolution;
               float d = distance(u_mousepos, coords);
 
+              fragColor = texture(tex, uv) - vec4(0, 0.01, 0, 0);
+
               if (d < 100.0) {
                 if (u_mousedown) {
-                  fragColor = fragColor + vec4(d / u_resolution.x, d / u_resolution.y, 0.0, 0);
+                  fragColor = vec4(d/100.0, 0.5, 0.5, 0);
                 } else {
-                  fragColor = fragColor - vec4(d / u_resolution.x, d / u_resolution.y, 0.0, 0);
+                  fragColor = vec4(0.5, 0.5, d/100.0, 0);
                 }
               }
             }
@@ -133,9 +133,10 @@ class WebglElement extends HTMLElement {
         gl.uniform1i(mouse.location_down, 0);
       },
       move(event: MouseEvent) {
+        console.log(event.offsetY, event.offsetX);
         gl.uniform2fv(mouse.location_pos, [
-          (event.offsetX * devicePixelRatio) / 2,
-          (canvas.height - event.offsetY * devicePixelRatio) * 2, // ???
+          event.offsetX * devicePixelRatio,
+          canvas.height - event.offsetY * devicePixelRatio,
         ]);
       },
     };
@@ -152,7 +153,8 @@ class WebglElement extends HTMLElement {
           canvas.height = canvas.offsetHeight * devicePixelRatio;
           canvas.width = canvas.offsetWidth * devicePixelRatio;
           gl.viewport(0, 0, canvas.width, canvas.height);
-          gl.uniform2fv(resize.location, [canvas.height, canvas.width]);
+          console.log(canvas.height, canvas.width);
+          gl.uniform2fv(resize.location, [canvas.width, canvas.height]);
           pass.init();
           this.yes = false;
         }
