@@ -60,7 +60,7 @@ class WebglElement extends HTMLElement {
           vec2 ij = uv * u_resolution;
           ij += vec2(stag_i, stag_j);
 
-          vec4 uv = texture(tex, vec2(floor(ij.x), floor(ij.y)));
+          vec4 uv = texture(tex, vec2(floor(ij.x) / u_resolution.x, floor(ij.y) / u_resolution.y));
 
           if (stag_i == floor(stag_i)) {
             return decodeVel(uv.g);
@@ -82,12 +82,24 @@ class WebglElement extends HTMLElement {
           float viscosity = 0.001;
           float drag = 0.0001;
 
-          vec2 a = pow(velocity(0.0, 0.0), vec2(2.0, 2.0)) - pow(velocity(1.0, 0.0), vec2(2.0, 2.0)) + (velocity(0.5, -0.5) * invertVel(velocity(0.5, -0.5))) - (velocity(0.5, 0.5) * invertVel(velocity(0.5, 0.5)));
-          vec2 b = velocity(1.5, 0.0) + velocity(-0.5, 0.0) + velocity(0.5, 1.0) + velocity(0.5, -1.0) - 4.0 * velocity(0.5, 0.0);
-          vec2 old_uv = vec2(velocity(0.5, 0.0).x, velocity(0.0, 0.5).y);
-          vec2 new_uv = old_uv + u_time * (a - viscosity*b + /* p_i,j p_i+1,j*/ - drag * old_uv);
-          fragColor.g = new_uv.x;
-          fragColor.b = new_uv.y;
+          fragColor = texture(tex, uv);
+
+          {
+            float a = pow(velocity(0.0, 0.0).x, 2.0) - pow(velocity(1.0, 0.0).x, 2.0) + (velocity(0.5, -0.5).x * velocity(0.5, -0.5).y) - (velocity(0.5, 0.5).x * velocity(0.5, 0.5).y);
+            float b = velocity(1.5, 0.0).x + velocity(-0.5, 0.0).x + velocity(0.5, 1.0).x + velocity(0.5, -1.0).x - 4.0 * velocity(0.5, 0.0).x;
+            fragColor.g = encodeVel(vec2(
+              velocity(0.5, 0.0).x + u_time * (a - viscosity*b + /* p_i,j p_i+1,j*/ - drag * velocity(0.5, 0.0).x),
+              decodeVel(fragColor.g).y
+            ));
+          }
+          {
+            float a = pow(velocity(0.0, 0.0).y, 2.0) - pow(velocity(1.0, 0.0).y, 2.0) + (velocity(0.5, -0.5).y * velocity(0.5, -0.5).x) - (velocity(0.5, 0.5).y * velocity(0.5, 0.5).x);
+            float b = velocity(1.5, 0.0).y + velocity(-0.5, 0.0).y + velocity(0.5, 1.0).y + velocity(0.5, -1.0).y - 4.0 * velocity(0.5, 0.0).y;
+            fragColor.b = encodeVel(vec2(
+              decodeVel(fragColor.b).x,
+              velocity(0.0, 0.5).y + u_time * (a - viscosity*b + /* p_i,j p_i+1,j*/ - drag * velocity(0.0, 0.5).y)
+            ));
+          }
 
           if (d < 100.0) {
             if (u_mousedown) {
