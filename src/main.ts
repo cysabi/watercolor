@@ -38,12 +38,20 @@ class WebglElement extends HTMLElement {
             in vec2 uv;
             out vec4 fragColor;
             uniform sampler2D tex;
+            uniform vec2 u_resolution;
+            uniform vec2 u_mousepos;
+            uniform bool u_mousedown;
 
             void main() {
-              if (texture(tex, uv).r == 0.0) {
-                fragColor = vec4(uv.x,0,uv.y,1);
+              // fragColor = texture(tex, uv) + vec4(0, 0.01, 0, 0);
+
+              vec2 coords = uv * u_resolution;
+              float d = distance(u_mousepos, coords);
+
+              if (u_mousedown) {
+                fragColor = vec4(d / u_resolution.x * 40.0, d / u_resolution.y * 40.0, 0.0, 0);
               } else {
-                fragColor = texture(tex, uv) + vec4(0,0.01,0,0);
+                fragColor = vec4(uv.x, uv.y, 0.0, 0);
               }
             }
         `
@@ -108,18 +116,44 @@ class WebglElement extends HTMLElement {
       draw(currentTime: number = 0) {
         const deltaTime = currentTime - this.u_time;
         this.u_time = currentTime;
-        gl.uniform1f(this.location, this.u_time / 1000.0);
+        gl.uniform1f(timer.location, this.u_time / 1000.0);
         return deltaTime;
       },
     };
 
+    const mouse = {
+      location_pos: gl.getUniformLocation(program, "u_mousepos"),
+      location_down: gl.getUniformLocation(program, "u_mousedown"),
+      down() {
+        console.log(1);
+        gl.uniform1i(mouse.location_down, 1);
+      },
+      up() {
+        console.log(0);
+        gl.uniform1i(mouse.location_down, 0);
+      },
+      move(event: MouseEvent) {
+        gl.uniform2fv(mouse.location_pos, [
+          (event.offsetX * devicePixelRatio) / 2,
+          (canvas.height - event.offsetY * devicePixelRatio) * 2,
+        ]);
+      },
+    };
+    gl.uniform2fv(mouse.location_pos, [0, 0]);
+    gl.uniform1i(mouse.location_down, 1);
+    canvas.addEventListener("mousedown", mouse.down);
+    canvas.addEventListener("mouseup", mouse.up);
+    canvas.addEventListener("mousemove", mouse.move);
+
     const resize = {
       yes: true,
+      location: gl.getUniformLocation(program, "u_resolution"),
       draw() {
         if (this.yes) {
           canvas.height = canvas.offsetHeight * devicePixelRatio;
           canvas.width = canvas.offsetWidth * devicePixelRatio;
           gl.viewport(0, 0, canvas.width, canvas.height);
+          gl.uniform2fv(resize.location, [canvas.height, canvas.width]);
           pass.init();
           this.yes = false;
         }
