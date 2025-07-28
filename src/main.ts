@@ -3,7 +3,9 @@ class WebglElement extends HTMLElement {
     const sr = this.attachShadow({ mode: "closed" });
     sr.innerHTML = `<canvas id="canvas" style="width: 100%; height: 100%;"></canvas>`;
     const canvas = sr.getElementById("canvas") as HTMLCanvasElement;
-    const gl = canvas.getContext("webgl2")!;
+    const gl = canvas.getContext("webgl2", {
+      premultipliedAlpha: false,
+    })!;
 
     // vertex stuff
     const buffer = gl.createBuffer();
@@ -56,57 +58,56 @@ class WebglElement extends HTMLElement {
         }
 
         // need 2 staggered grids, one shifted down and one shifted right. r (official), g (shifted down), b (shifted right), a (1)
-        vec2 velocity(float stag_i, float stag_j) {
-          vec2 ij = uv * u_resolution;
-          ij += vec2(stag_i, stag_j);
+vec2 velocity(float stag_i, float stag_j) {
+  vec2 ij = uv * u_resolution;
+  ij += vec2(stag_i, stag_j);
 
-          vec4 uv = texture(tex, vec2(floor(ij.x) / u_resolution.x, floor(ij.y) / u_resolution.y));
+  vec4 uv = texture(tex, vec2(floor(ij.x) / u_resolution.x, floor(ij.y) / u_resolution.y));
 
-          if (stag_i == floor(stag_i)) {
-            return decodeVel(uv.g);
-          }
-          if (stag_j == floor(stag_j)) {
-            return decodeVel(uv.b);
-          }
-          // if (stag_j == floor(stag_j)) {
-          // // TODO i need to have fucking corners bro
-          // return decodeVel(uv.b);
-          // }
-          return decodeVel(uv.r);
-        }
+  if (stag_i != floor(stag_i) && stag_j == floor(stag_j)) {
+    return decodeVel(uv.a);
+  }
+  if (stag_i != floor(stag_i)) {
+    return decodeVel(uv.g);
+  }
+  if (stag_j != floor(stag_j)) {
+    return decodeVel(uv.b);
+  }
+  return decodeVel(uv.r);
+}
 
-        void main() {
-          vec2 coords = uv * u_resolution;
-          float d = distance(u_mousepos, coords);
+ void main() {
+  vec2 coords = uv * u_resolution;
+  float d = distance(u_mousepos, coords);
 
-          float viscosity = 0.001;
-          float drag = 0.0001;
+  float viscosity = 0.001;
+  float drag = 0.0001;
 
-          fragColor = texture(tex, uv);
+  fragColor = texture(tex, uv);
 
-          {
-            float a = pow(velocity(0.0, 0.0).x, 2.0) - pow(velocity(1.0, 0.0).x, 2.0) + (velocity(0.5, -0.5).x * velocity(0.5, -0.5).y) - (velocity(0.5, 0.5).x * velocity(0.5, 0.5).y);
-            float b = velocity(1.5, 0.0).x + velocity(-0.5, 0.0).x + velocity(0.5, 1.0).x + velocity(0.5, -1.0).x - 4.0 * velocity(0.5, 0.0).x;
-            fragColor.g = encodeVel(vec2(
-              velocity(0.5, 0.0).x + u_time * (a - viscosity*b + /* p_i,j p_i+1,j*/ - drag * velocity(0.5, 0.0).x),
-              decodeVel(fragColor.g).y
-            ));
-          }
-          {
-            float a = pow(velocity(0.0, 0.0).y, 2.0) - pow(velocity(1.0, 0.0).y, 2.0) + (velocity(0.5, -0.5).y * velocity(0.5, -0.5).x) - (velocity(0.5, 0.5).y * velocity(0.5, 0.5).x);
-            float b = velocity(1.5, 0.0).y + velocity(-0.5, 0.0).y + velocity(0.5, 1.0).y + velocity(0.5, -1.0).y - 4.0 * velocity(0.5, 0.0).y;
-            fragColor.b = encodeVel(vec2(
-              decodeVel(fragColor.b).x,
-              velocity(0.0, 0.5).y + u_time * (a - viscosity*b + /* p_i,j p_i+1,j*/ - drag * velocity(0.0, 0.5).y)
-            ));
-          }
+  {
+    float a = pow(velocity(0.0, 0.0).x, 2.0) - pow(velocity(1.0, 0.0).x, 2.0) + (velocity(0.5, -0.5).x * velocity(0.5, -0.5).y) - (velocity(0.5, 0.5).x * velocity(0.5, 0.5).y);
+    float b = velocity(1.5, 0.0).x + velocity(-0.5, 0.0).x + velocity(0.5, 1.0).x + velocity(0.5, -1.0).x - 4.0 * velocity(0.5, 0.0).x;
+    fragColor.g = encodeVel(vec2(
+      velocity(0.5, 0.0).x + u_time * (a - viscosity*b + /* p_i,j p_i+1,j*/ - drag * velocity(0.5, 0.0).x),
+      decodeVel(fragColor.g).y
+    ));
+  }
+  {
+    float a = pow(velocity(0.0, 0.0).y, 2.0) - pow(velocity(1.0, 0.0).y, 2.0) + (velocity(0.5, -0.5).y * velocity(0.5, -0.5).x) - (velocity(0.5, 0.5).y * velocity(0.5, 0.5).x);
+    float b = velocity(1.5, 0.0).y + velocity(-0.5, 0.0).y + velocity(0.5, 1.0).y + velocity(0.5, -1.0).y - 4.0 * velocity(0.5, 0.0).y;
+    fragColor.b = encodeVel(vec2(
+      decodeVel(fragColor.b).x,
+      velocity(0.0, 0.5).y + u_time * (a - viscosity*b + /* p_i,j p_i+1,j*/ - drag * velocity(0.0, 0.5).y)
+    ));
+  }
 
-          if (d < 100.0) {
-            if (u_mousedown) {
-              fragColor = vec4(1, 1, 1, 0);
-            }
-          }
-        }
+  if (d < 100.0) {
+    if (u_mousedown) {
+      fragColor = vec4(1, 1, 1, 1);
+    }
+  }
+}
       `
     );
     var program = gl.createProgram();
